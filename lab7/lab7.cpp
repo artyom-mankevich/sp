@@ -1,10 +1,5 @@
-// SP_lab6.cpp : Defines the entry point for the application.
-//
-
 #include "framework.h"
-#include "lab6.h"
-#include <string> 
-#include <atlstr.h>
+#include "lab7.h"
 
 #define MAX_LOADSTRING 100
 
@@ -19,6 +14,10 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
+
+
+HANDLE hMutex;
+
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
 	_In_ LPWSTR    lpCmdLine,
@@ -31,7 +30,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	// Initialize global strings
 	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-	LoadStringW(hInstance, IDC_LAB6, szWindowClass, MAX_LOADSTRING);
+	LoadStringW(hInstance, IDC_LAB7, szWindowClass, MAX_LOADSTRING);
 	MyRegisterClass(hInstance);
 
 	// Perform application initialization:
@@ -40,7 +39,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		return FALSE;
 	}
 
-	HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_LAB6));
+	HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_LAB7));
+
 	MSG msg;
 
 	// Main message loop:
@@ -74,10 +74,10 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 	wcex.cbClsExtra = 0;
 	wcex.cbWndExtra = 0;
 	wcex.hInstance = hInstance;
-	wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_LAB6));
+	wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_LAB7));
 	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
 	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-	wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_LAB6);
+	wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_LAB7);
 	wcex.lpszClassName = szWindowClass;
 	wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
@@ -100,106 +100,93 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+
 	if (!hWnd)
 	{
 		return FALSE;
 	}
+
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
 
 	return TRUE;
 }
-
-DWORD CALLBACK drawFirst(HWND hWnd) {
-	int speed = 5;
-	RECT rc;
-	HDC hdc = GetDC(hWnd);
-	GetClientRect(hWnd, &rc);
-	SelectObject(hdc, GetStockObject(DC_BRUSH));
-	SetDCBrushColor(hdc, RGB(0, 200, 0));
-	while (TRUE) {
-		Rectangle(hdc, 150, 0, 300, speed);
-		Sleep(100);
-		speed += 10;
-		if (speed > rc.bottom) break;
+enum drawEnum
+{
+	House = 2,
+	Tree = 3,
+	Rhombus = 4
+};
+struct drawingParams
+{
+	HWND hWnd;
+	RECT rt;
+	INT option;
+};
+DWORD WINAPI ThreadFunc(LPVOID lpParam) {
+	drawingParams* params = (drawingParams*)lpParam;
+	INT option = params->option;
+	RECT rt = params->rt;
+	DWORD dwWaitResult;
+	INT midX = (rt.right - rt.left) / 2;
+	INT midY = (rt.bottom - rt.top) / 2;
+	while (true) {
+		dwWaitResult = WaitForSingleObject(hMutex, INFINITE);
+		if (dwWaitResult == WAIT_OBJECT_0) {
+			HDC hDC = GetDC(params->hWnd);
+			if (option == House) {
+				FillRect(hDC, &rt, CreateSolidBrush(RGB(255, 255, 255)));
+				SelectObject(hDC, GetStockObject(DC_BRUSH));
+				SetDCBrushColor(hDC, 0x0031BF7C);
+				POINT drawingPoints[] = { { midX , midY - 70 }, { midX - 40 , midY - 40}, { midX - 40, midY + 40},
+					{midX + 40 , midY + 40} , { midX + 40 , midY - 40 }, { midX , midY - 70 } };
+				Polygon(hDC, drawingPoints, 6);
+			}
+			else if (option == Rhombus) {
+				FillRect(hDC, &rt, CreateSolidBrush(RGB(255, 255, 255)));
+				SelectObject(hDC, GetStockObject(DC_BRUSH));
+				SetDCBrushColor(hDC, 0x00C70A7E);
+				POINT drawingPoints[] = { { midX , midY - 50 }, { midX - 50 , midY}, { midX, midY + 50} , {midX + 50 , midY } , { midX , midY - 50 } };
+				Polygon(hDC, drawingPoints, 5);
+			}
+			else if (option == Tree) {
+				FillRect(hDC, &rt, CreateSolidBrush(RGB(255, 255, 255)));
+				SelectObject(hDC, GetStockObject(DC_BRUSH));
+				SetDCBrushColor(hDC, 0x00035fA0);
+				POINT drawingPoints[] = { { midX - 10 , midY }, { midX - 20 , midY + 50}, { midX + 20, midY + 50} , {midX + 10 , midY } , { midX - 10 , midY } };
+				Polygon(hDC, drawingPoints, 5);
+				SetDCBrushColor(hDC, 0x002A9628);
+				Ellipse(hDC, midX - 40, midY - 40, midX + 40, midY + 40);
+			}
+			ReleaseDC(params->hWnd, hDC);
+		}
+		Sleep(1000);
+		ReleaseMutex(hMutex);
 	}
 	return 0;
 }
-
-DWORD CALLBACK drawSecond(HWND hWnd) {
-	int speed = 5;
-	RECT rc;
-	HDC hdc = GetDC(hWnd);
-	GetClientRect(hWnd, &rc);
-	SelectObject(hdc, GetStockObject(DC_BRUSH));
-	SetDCBrushColor(hdc, RGB(200, 0, 0));
-	while (TRUE) {
-		Rectangle(hdc, 300, 0, 450, speed);
-		Sleep(100);
-		speed += 10;
-		if (speed > rc.bottom) break;
-	}
-	return 0;
-}
-
-DWORD CALLBACK drawThird(HWND hWnd) {
-	int speed = 5;
-	RECT rc;
-	HDC hdc = GetDC(hWnd);
-	GetClientRect(hWnd, &rc);
-	SelectObject(hdc, GetStockObject(DC_BRUSH));
-	SetDCBrushColor(hdc, RGB(0, 0, 200));
-	while (TRUE) {
-		Rectangle(hdc, 450, 0, 600, speed);
-		Sleep(100);
-		speed += 10;
-		if (speed > rc.bottom) break;
-	}
-	return 0;
-}
+//
+//  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
+//
+//  PURPOSE: Processes messages for the main window.
+//
+//  WM_COMMAND  - process the application menu
+//  WM_PAINT    - Paint the main window
+//  WM_DESTROY  - post a quit message and return
+//
+//
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	static HWND btn_start;
-	static HWND btn_stop;
-
-	static HANDLE thread_handle_1;
-	static HANDLE thread_handle_2;
-	static HANDLE thread_handle_3;
-
+	static RECT rt;
+	static HANDLE threads[3];
 	switch (message)
 	{
-	case WM_CREATE:
-	{
-		btn_start = CreateWindow(L"button", L"Start",
-			WS_CHILD | WS_VISIBLE |
-			BS_PUSHBUTTON,
-			0, 0, 100, 30, hWnd, (HMENU)1, hInst, NULL);
-		btn_stop = CreateWindow(L"button", L"Stop",
-			WS_CHILD | WS_VISIBLE |
-			BS_PUSHBUTTON,
-			0, 30, 100, 30, hWnd, (HMENU)2, hInst, NULL);
-
-		thread_handle_1 = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)drawFirst, hWnd, CREATE_SUSPENDED, NULL);
-		thread_handle_2 = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)drawSecond, hWnd, CREATE_SUSPENDED, NULL);
-		thread_handle_3 = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)drawThird, hWnd, CREATE_SUSPENDED, NULL);
-	}
-	break;
 	case WM_COMMAND:
 	{
 		int wmId = LOWORD(wParam);
 		switch (wmId)
 		{
-		case 1:
-			ResumeThread(thread_handle_1);
-			ResumeThread(thread_handle_2);
-			ResumeThread(thread_handle_3);
-			break;
-		case 2:
-			SuspendThread(thread_handle_1);
-			SuspendThread(thread_handle_2);
-			SuspendThread(thread_handle_3);
-			break;
 		case IDM_ABOUT:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
 			break;
@@ -211,6 +198,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 	}
 	break;
+	case WM_CREATE:
+	{
+		GetWindowRect(hWnd, &rt);
+		rt.top = 0;
+		rt.left = 0;
+		hMutex = CreateMutex(NULL, FALSE, NULL);
+
+		drawingParams* params1 = new drawingParams{ hWnd, rt, House };
+		drawingParams* params2 = new drawingParams{ hWnd, rt, Tree };
+		drawingParams* params3 = new drawingParams{ hWnd, rt, Rhombus };
+		threads[0] = CreateThread(NULL, 0, ThreadFunc, (LPVOID*)params1, NULL, NULL);
+		threads[1] = CreateThread(NULL, 0, ThreadFunc, (LPVOID*)params2, NULL, NULL);
+		threads[2] = CreateThread(NULL, 0, ThreadFunc, (LPVOID*)params3, NULL, NULL);
+
+		break;
+	}
+
 	case WM_PAINT:
 	{
 		PAINTSTRUCT ps;
@@ -219,6 +223,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	break;
 	case WM_DESTROY:
+		WaitForMultipleObjects(3, threads, TRUE, INFINITE);
 		PostQuitMessage(0);
 		break;
 	default:

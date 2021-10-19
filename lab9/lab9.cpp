@@ -1,10 +1,8 @@
-// SP_lab6.cpp : Defines the entry point for the application.
-//
+// lab9.cpp : Defines the entry point for the application.
 
 #include "framework.h"
-#include "lab6.h"
-#include <string> 
-#include <atlstr.h>
+#include "lab9.h"
+#include <strsafe.h>
 
 #define MAX_LOADSTRING 100
 
@@ -19,6 +17,8 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
+int max = 1000;
+
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
 	_In_ LPWSTR    lpCmdLine,
@@ -31,7 +31,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	// Initialize global strings
 	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-	LoadStringW(hInstance, IDC_LAB6, szWindowClass, MAX_LOADSTRING);
+	LoadStringW(hInstance, IDC_LAB9, szWindowClass, MAX_LOADSTRING);
 	MyRegisterClass(hInstance);
 
 	// Perform application initialization:
@@ -40,7 +40,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		return FALSE;
 	}
 
-	HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_LAB6));
+	HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_LAB9));
+
 	MSG msg;
 
 	// Main message loop:
@@ -74,10 +75,10 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 	wcex.cbClsExtra = 0;
 	wcex.cbWndExtra = 0;
 	wcex.hInstance = hInstance;
-	wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_LAB6));
+	wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_LAB9));
 	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
 	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-	wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_LAB6);
+	wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_LAB9);
 	wcex.lpszClassName = szWindowClass;
 	wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
@@ -100,124 +101,130 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+
 	if (!hWnd)
 	{
 		return FALSE;
 	}
+
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
 
 	return TRUE;
 }
 
-DWORD CALLBACK drawFirst(HWND hWnd) {
-	int speed = 5;
-	RECT rc;
-	HDC hdc = GetDC(hWnd);
-	GetClientRect(hWnd, &rc);
-	SelectObject(hdc, GetStockObject(DC_BRUSH));
-	SetDCBrushColor(hdc, RGB(0, 200, 0));
-	while (TRUE) {
-		Rectangle(hdc, 150, 0, 300, speed);
-		Sleep(100);
-		speed += 10;
-		if (speed > rc.bottom) break;
+
+void SearchClosure(HWND hwnd, HKEY hKeyRoot, LPTSTR lpSubKey, TCHAR* s)
+{
+	if (--max <= 0) return;
+	LPTSTR lpEnd;
+	LONG lResult;
+	DWORD dwSize;
+	TCHAR szName[MAX_PATH];
+	HKEY hKey;
+	FILETIME ftWrite;
+
+	lResult = RegOpenKeyEx(hKeyRoot, lpSubKey, 0, KEY_READ, &hKey);
+	if (lResult != ERROR_SUCCESS)
+	{
+		return;
 	}
-	return 0;
+
+	if (_tcsstr(lpSubKey, s) != NULL)
+		SendMessage(hwnd, LB_ADDSTRING, 0, (LPARAM)lpSubKey);
+
+	lpEnd = lpSubKey + lstrlen(lpSubKey);
+
+	if (*(lpEnd - 1) != TEXT('\\'))
+	{
+		*lpEnd = TEXT('\\');
+		lpEnd++;
+		*lpEnd = TEXT('\0');
+	}
+
+	dwSize = MAX_PATH;
+	lResult = RegEnumKeyEx(hKey, 0, szName, &dwSize, NULL,
+		NULL, NULL, &ftWrite);
+
+	if (lResult == ERROR_SUCCESS)
+	{
+		int index = 0;
+		do {
+			index++;
+
+			StringCchCopy(lpEnd, MAX_PATH * 2, szName);
+
+			SearchClosure(hwnd, hKeyRoot, lpSubKey, s);
+			if (max <= 0) return;
+
+			dwSize = MAX_PATH;
+
+			lResult = RegEnumKeyEx(hKey, index, szName, &dwSize, NULL,
+				NULL, NULL, &ftWrite);
+
+		} while (lResult == ERROR_SUCCESS);
+	}
+
+	lpEnd--;
+	*lpEnd = TEXT('\0');
+
+	RegCloseKey(hKey);
 }
 
-DWORD CALLBACK drawSecond(HWND hWnd) {
-	int speed = 5;
-	RECT rc;
-	HDC hdc = GetDC(hWnd);
-	GetClientRect(hWnd, &rc);
-	SelectObject(hdc, GetStockObject(DC_BRUSH));
-	SetDCBrushColor(hdc, RGB(200, 0, 0));
-	while (TRUE) {
-		Rectangle(hdc, 300, 0, 450, speed);
-		Sleep(100);
-		speed += 10;
-		if (speed > rc.bottom) break;
-	}
-	return 0;
-}
+void Lookup(HWND hwnd, TCHAR* s) {
+	SendMessage(hwnd, LB_RESETCONTENT, 0, 0);
 
-DWORD CALLBACK drawThird(HWND hWnd) {
-	int speed = 5;
-	RECT rc;
-	HDC hdc = GetDC(hWnd);
-	GetClientRect(hWnd, &rc);
-	SelectObject(hdc, GetStockObject(DC_BRUSH));
-	SetDCBrushColor(hdc, RGB(0, 0, 200));
-	while (TRUE) {
-		Rectangle(hdc, 450, 0, 600, speed);
-		Sleep(100);
-		speed += 10;
-		if (speed > rc.bottom) break;
-	}
-	return 0;
-}
+	LPTSTR lpSubKey = (LPTSTR)L"Software";
+	TCHAR szSearchKey[MAX_PATH * 2];
+	StringCchCopy(szSearchKey, MAX_PATH * 2, lpSubKey);
 
+	max = 1000;
+	SearchClosure(hwnd, HKEY_LOCAL_MACHINE, szSearchKey, s);
+}
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	static HWND btn_start;
-	static HWND btn_stop;
+	PAINTSTRUCT ps;
+	HDC hdc;
 
-	static HANDLE thread_handle_1;
-	static HANDLE thread_handle_2;
-	static HANDLE thread_handle_3;
+	static HWND editField;
+	static HWND btn_search;
+	static HWND list;
+
 
 	switch (message)
 	{
 	case WM_CREATE:
 	{
-		btn_start = CreateWindow(L"button", L"Start",
-			WS_CHILD | WS_VISIBLE |
-			BS_PUSHBUTTON,
-			0, 0, 100, 30, hWnd, (HMENU)1, hInst, NULL);
-		btn_stop = CreateWindow(L"button", L"Stop",
-			WS_CHILD | WS_VISIBLE |
-			BS_PUSHBUTTON,
-			0, 30, 100, 30, hWnd, (HMENU)2, hInst, NULL);
+		editField = CreateWindowEx(WS_EX_CLIENTEDGE, L"Edit", L"", WS_TABSTOP | WS_CHILD | WS_VISIBLE | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
+			50, 650, 850, 30, hWnd, (HMENU)101, hInst, NULL);
 
-		thread_handle_1 = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)drawFirst, hWnd, CREATE_SUSPENDED, NULL);
-		thread_handle_2 = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)drawSecond, hWnd, CREATE_SUSPENDED, NULL);
-		thread_handle_3 = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)drawThird, hWnd, CREATE_SUSPENDED, NULL);
+		btn_search = CreateWindow(L"button", L"Search", WS_TABSTOP | WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON,
+			900, 650, 150, 30, hWnd, (HMENU)102, hInst, NULL);
+
+		list = CreateWindowEx(WS_EX_CLIENTEDGE, L"Listbox", L"", WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL,
+			50, 50, 1000, 600, hWnd, (HMENU)103, hInst, NULL);
 	}
 	break;
 	case WM_COMMAND:
-	{
-		int wmId = LOWORD(wParam);
-		switch (wmId)
+		switch (LOWORD(wParam))
 		{
-		case 1:
-			ResumeThread(thread_handle_1);
-			ResumeThread(thread_handle_2);
-			ResumeThread(thread_handle_3);
-			break;
-		case 2:
-			SuspendThread(thread_handle_1);
-			SuspendThread(thread_handle_2);
-			SuspendThread(thread_handle_3);
-			break;
-		case IDM_ABOUT:
-			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-			break;
-		case IDM_EXIT:
-			DestroyWindow(hWnd);
-			break;
+		case 102:
+		{
+			int len;
+			len = SendMessage(editField, WM_GETTEXTLENGTH, 0, 0);
+			TCHAR buffer[256];
+			SendMessage(editField, WM_GETTEXT, len + 1, (LPARAM)buffer);
+			Lookup(list, buffer);
+		}
+		break;
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
-	}
-	break;
+		break;
 	case WM_PAINT:
-	{
-		PAINTSTRUCT ps;
-		HDC hdc = BeginPaint(hWnd, &ps);
+		hdc = BeginPaint(hWnd, &ps);
 		EndPaint(hWnd, &ps);
-	}
-	break;
+		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
